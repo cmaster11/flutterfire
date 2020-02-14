@@ -67,6 +67,8 @@ public class FlutterFirebaseMessagingService extends FirebaseMessagingService {
   public void onCreate() {
     super.onCreate();
 
+    Log.d(TAG, "onCreate");
+
     backgroundContext = getApplicationContext();
     FlutterMain.ensureInitializationComplete(backgroundContext, null);
 
@@ -85,6 +87,9 @@ public class FlutterFirebaseMessagingService extends FirebaseMessagingService {
    */
   @Override
   public void onMessageReceived(final RemoteMessage remoteMessage) {
+
+    Log.d(TAG, "onMessageReceived: " + remoteMessage.getData());
+
     // If application is running in the foreground use local broadcast to handle message.
     // Otherwise use the background isolate to handle message.
     if (isApplicationForeground(this)) {
@@ -124,6 +129,9 @@ public class FlutterFirebaseMessagingService extends FirebaseMessagingService {
    */
   @Override
   public void onNewToken(String token) {
+
+    Log.d(TAG, "onNewToken: " + token);
+
     Intent intent = new Intent(ACTION_TOKEN);
     intent.putExtra(EXTRA_TOKEN, token);
     LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
@@ -148,6 +156,14 @@ public class FlutterFirebaseMessagingService extends FirebaseMessagingService {
       return;
     }
 
+    // It's possible for this function to get called multiple times in the lifecycle of the app,
+    // so we don't want to spawn more and more isolates every time
+    if (backgroundFlutterView != null) {
+      Log.d(TAG, "destroying previous background view");
+      backgroundFlutterView.destroy();
+      isIsolateRunning.set(false);
+    }
+
     // Note that we're passing `true` as the second argument to our
     // FlutterNativeView constructor. This specifies the FlutterNativeView
     // as a background view and does not create a drawing surface.
@@ -170,6 +186,7 @@ public class FlutterFirebaseMessagingService extends FirebaseMessagingService {
    * Dart side once all background initialization is complete via `FcmDartService#initialized`.
    */
   public static void onInitialized() {
+    Log.d(TAG, "initialized");
     isIsolateRunning.set(true);
     synchronized (backgroundMessageQueue) {
       // Handle all the messages received before the Dart isolate was
@@ -259,6 +276,8 @@ public class FlutterFirebaseMessagingService extends FirebaseMessagingService {
       throw new RuntimeException(
           "setBackgroundChannel was not called before messages came in, exiting.");
     }
+
+    Log.d(TAG, "executeDartCallbackInBackgroundIsolate: " + remoteMessage.getData());
 
     // If another thread is waiting, then wake that thread when the callback returns a result.
     MethodChannel.Result result = null;

@@ -21,8 +21,7 @@ typedef Future<dynamic> MessageHandler(Map<String, dynamic> message);
 /// Your app should never call this method directly, this is only for use
 /// by the firebase_messaging plugin to setup background message handling.
 void _fcmSetupBackgroundChannel(
-    {MethodChannel backgroundChannel = const MethodChannel(
-        'plugins.flutter.io/firebase_messaging_background')}) async {
+    {MethodChannel backgroundChannel = const MethodChannel('plugins.flutter.io/firebase_messaging_background')}) async {
   // Setup Flutter state needed for MethodChannels.
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -30,13 +29,10 @@ void _fcmSetupBackgroundChannel(
   // native portion of the plugin.
   backgroundChannel.setMethodCallHandler((MethodCall call) async {
     if (call.method == 'handleBackgroundMessage') {
-      final CallbackHandle handle =
-          CallbackHandle.fromRawHandle(call.arguments['handle']);
-      final Function handlerFunction =
-          PluginUtilities.getCallbackFromHandle(handle);
+      final CallbackHandle handle = CallbackHandle.fromRawHandle(call.arguments['handle']);
+      final Function handlerFunction = PluginUtilities.getCallbackFromHandle(handle);
       try {
-        await handlerFunction(
-            Map<String, dynamic>.from(call.arguments['message']));
+        await handlerFunction(Map<String, dynamic>.from(call.arguments['message']));
       } catch (e) {
         print('Unable to handle incoming background message.');
         print(e);
@@ -62,9 +58,8 @@ class FirebaseMessaging {
       : _channel = channel,
         _platform = platform;
 
-  static final FirebaseMessaging _instance = FirebaseMessaging.private(
-      const MethodChannel('plugins.flutter.io/firebase_messaging'),
-      const LocalPlatform());
+  static final FirebaseMessaging _instance =
+  FirebaseMessaging.private(const MethodChannel('plugins.flutter.io/firebase_messaging'), const LocalPlatform());
 
   final MethodChannel _channel;
   final Platform _platform;
@@ -91,7 +86,7 @@ class FirebaseMessaging {
   }
 
   final StreamController<IosNotificationSettings> _iosSettingsStreamController =
-      StreamController<IosNotificationSettings>.broadcast();
+  StreamController<IosNotificationSettings>.broadcast();
 
   /// Stream that fires when the user changes their notification settings.
   ///
@@ -101,44 +96,50 @@ class FirebaseMessaging {
   }
 
   /// Sets up [MessageHandler] for incoming messages.
-  void configure({
+  Future<void> configure({
     MessageHandler onMessage,
     MessageHandler onBackgroundMessage,
     MessageHandler onLaunch,
     MessageHandler onResume,
-  }) {
+  }) async {
     _onMessage = onMessage;
     _onLaunch = onLaunch;
     _onResume = onResume;
     _channel.setMethodCallHandler(_handleMethod);
-    _channel.invokeMethod<void>('configure');
+    await _channel.invokeMethod<void>('configure');
     if (onBackgroundMessage != null) {
-      _onBackgroundMessage = onBackgroundMessage;
-      final CallbackHandle backgroundSetupHandle =
-          PluginUtilities.getCallbackHandle(_fcmSetupBackgroundChannel);
-      final CallbackHandle backgroundMessageHandle =
-          PluginUtilities.getCallbackHandle(_onBackgroundMessage);
-
-      if (backgroundMessageHandle == null) {
-        throw ArgumentError(
-          '''Failed to setup background message handler! `onBackgroundMessage`
-          should be a TOP-LEVEL OR STATIC FUNCTION and should NOT be tied to a
-          class or an anonymous function.''',
-        );
-      }
-
-      _channel.invokeMethod<bool>(
-        'FcmDartService#start',
-        <String, dynamic>{
-          'setupHandle': backgroundSetupHandle.toRawHandle(),
-          'backgroundHandle': backgroundMessageHandle.toRawHandle()
-        },
-      );
+      await configureBackgroundMessage(onBackgroundMessage: onBackgroundMessage);
     }
   }
 
-  final StreamController<String> _tokenStreamController =
-      StreamController<String>.broadcast();
+  /// Sets up only background messages processing.
+  Future<void> configureBackgroundMessage({
+    @required MessageHandler onBackgroundMessage,
+  }) async {
+    assert(onBackgroundMessage != null);
+
+    _onBackgroundMessage = onBackgroundMessage;
+    final CallbackHandle backgroundSetupHandle = PluginUtilities.getCallbackHandle(_fcmSetupBackgroundChannel);
+    final CallbackHandle backgroundMessageHandle = PluginUtilities.getCallbackHandle(_onBackgroundMessage);
+
+    if (backgroundMessageHandle == null) {
+      throw ArgumentError(
+        '''Failed to setup background message handler! `onBackgroundMessage`
+          should be a TOP-LEVEL OR STATIC FUNCTION and should NOT be tied to a
+          class or an anonymous function.''',
+      );
+    }
+
+    await _channel.invokeMethod<bool>(
+      'FcmDartService#start',
+      <String, dynamic>{
+        'setupHandle': backgroundSetupHandle.toRawHandle(),
+        'backgroundHandle': backgroundMessageHandle.toRawHandle()
+      },
+    );
+  }
+
+  final StreamController<String> _tokenStreamController = StreamController<String>.broadcast();
 
   /// Fires when a new FCM token is generated.
   Stream<String> get onTokenRefresh {
@@ -189,8 +190,7 @@ class FirebaseMessaging {
         _tokenStreamController.add(token);
         return null;
       case "onIosSettingsRegistered":
-        _iosSettingsStreamController.add(IosNotificationSettings._fromMap(
-            call.arguments.cast<String, bool>()));
+        _iosSettingsStreamController.add(IosNotificationSettings._fromMap(call.arguments.cast<String, bool>()));
         return null;
       case "onMessage":
         return _onMessage(call.arguments.cast<String, dynamic>());
@@ -225,12 +225,7 @@ class IosNotificationSettings {
 
   @visibleForTesting
   Map<String, dynamic> toMap() {
-    return <String, bool>{
-      'sound': sound,
-      'alert': alert,
-      'badge': badge,
-      'provisional': provisional
-    };
+    return <String, bool>{'sound': sound, 'alert': alert, 'badge': badge, 'provisional': provisional};
   }
 
   @override
